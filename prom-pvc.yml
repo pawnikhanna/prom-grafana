@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: task-prom-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  labels:
+    app: prom
+spec:
+  ports:
+    - port: 9090
+  selector:
+    app: prom
+  type: NodePort
+---
+
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: prom-deploy
+  labels:
+    app: prom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prom
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: prom
+    spec:
+      containers:
+      - image: pawnikhanna/prometheus:v1
+        name: prom
+        ports:
+        - containerPort: 9090
+          name: prom
+        volumeMounts:
+        - name: prom-config
+          mountPath: /prometheus-2.19.2.linux-amd64/prometheus.yml
+          subPath: prometheus.yml
+        - name: task-prom-claim
+          mountPath: /prometheus-2.19.2.linux-amd64/data
+      volumes:
+        - name: prom-config
+          configMap:
+            name: prom-config
+        - name: task-prom-claim
+          persistentVolumeClaim:
+            claimName: task-prom-claim
